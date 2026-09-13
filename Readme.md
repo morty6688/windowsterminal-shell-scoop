@@ -1,56 +1,71 @@
-# PowerShell Scripts to Install/Uninstall Context Menu Items for Windows Terminal
+# Windows Terminal 右键菜单（Scoop）
 
-Now with `scoop` support!!
+为文件夹和文件夹空白处添加 Windows Terminal 菜单，支持普通启动和管理员启动。
 
-## Install
+优先检测 `%USERPROFILE%\scoop\apps\windows-terminal`，也支持通过 `SCOOP` 环境变量指定安装位置；未找到 Scoop 安装时尝试 Microsoft Store 版本。
 
-1. [Install Windows Terminal](https://github.com/microsoft/terminal).
-1. [Install PowerShell 7](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows?view=powershell-7).
-1. Launch PowerShell 7 console as administrator, and run `install.ps1` to install context menu items to Windows Explorer.
+## 安装
 
-   > Quickest way to run the latest script from GitHub at an elevated PowerShell 7 console is
+先安装并运行一次 Windows Terminal，然后在**当前用户的管理员 PowerShell 7** 中进入本仓库执行：
 
-   > ``` powershell
-   > Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/lextm/windowsterminal-shell/master/install.ps1'))
-   > ```
+```powershell
+.\install.ps1 -Layout Default
+```
 
-Now the menu items are added to Windows Explorer context menu.
+Default 使用 CommandStore 子菜单，安装时会显示 `Registration mode: CommandStore-v1`。文件夹入口使用 `%1\.`，空白处使用 `%V\.`，配置文件通过 GUID 选择。
 
-![default layout](default.png)
+本机已由用户确认：改用此方式并在本机运行脚本后，Directory Opus 中的菜单恢复正常。此结果不代表所有 Windows/Opus 版本均已验证。
 
-Figure 1: Default layout
+### 菜单布局
 
-> The menu items are organized in the `default` layout. Other layouts such as `mini` and `flat` give different look and feel. To apply an alternative layout (like `mini`), simply run `install.ps1 mini`.
+- `Default`：普通和管理员两组子菜单，每组列出可用配置。
+- `Flat`：将各配置的普通和管理员命令直接放在右键菜单中。
+- `Mini`：只提供默认配置的普通和管理员入口。
 
-![flat layout](flat.png)
+![Default 布局](default.png)
 
-Figure 2: Flat layout
+![Flat 布局](flat.png)
 
-![mini layout](mini.png)
+![Mini 布局](mini.png)
 
-Figure 3: Mini layout
+切换布局前先卸载原布局，例如从 Default 切换到 Mini：
 
-## Uninstall
-1. Run `uninstall.ps1` to uninstall context menu items from Windows Explorer.
+```powershell
+.\uninstall.ps1 -Layout Default
+.\install.ps1 -Layout Mini
+```
 
-> To uninstall an alternative layout (like `mini`), run `uninstall.ps1 mini`.
+## 卸载与重装
 
-## Notes
-The current release only supports Windows 10 machines (Windows Terminal restriction) and Windows Terminal installed via the store or .appx file.
+在管理员 PowerShell 7 中执行，`Layout` 应与已安装的布局一致：
 
-> If Windows Terminal is installed via Scoop, [scripts from another repo](https://github.com/grimux/windowsterminal-shell-scoop/tree/scoop-support) might help.
+```powershell
+.\uninstall.ps1 -Layout Default
+```
 
-The install script must be run as administrator.
+需要重装时，再运行对应的 `install.ps1` 命令。卸载只处理本项目的菜单和缓存，不卸载 Windows Terminal，也不删除其配置。
 
-> That's because it pulls out data from Windows Terminal's installation folder, which is locked down by Windows 10.
+## 修改范围
 
-`install.ps1` and `uninstall.ps1` only manipulate current user's Windows Explorer settings for the context menu items, and do not write to Windows Terminal settings.
+- 菜单入口位于 `HKCU\Software\Classes\Directory\shell` 和 `Directory\Background\shell`。
+- Default 命令位于 `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell`，以 `WindowsterminalShellScoop.<用户 SID>.` 区分所属用户。安装及删除这些命令需要管理员权限。
+- `RegistrationMode = CommandStore-v1` 和非空的 `SubCommands` 可用于核对 Default 是否已安装。安装脚本会检查命令引用是否存在。
+- 缓存位于 `%LOCALAPPDATA%\windowsterminal-shell-scoop\Cache`。旧版放在共享 `WindowsApps\Cache` 下的文件不会被自动删除。
+- 管理员入口通过 Windows Script Host 的辅助脚本调用 `runas`，需要 Windows Script Host 可用，并由用户确认 UAC。
+- 历史机器级菜单不会被盲目删除；如果检测到冲突，脚本会停止并提示检查。
 
-> So different users on the same machine must install the context menu items separately, but possibly with different layouts.
+## 验证
 
-Downloading Windows Terminal icon from GitHub (in `install.ps1`) requires internet connection, but in general is just an optional step that won't be executed in most cases.
+```powershell
+.\verify-registration.ps1
+```
 
-### Using scoop
-This script will search for a scoop installation of Windows Terminal before checking for a Windows Store version.
+执行 PowerShell 语法和隔离注册验证，覆盖三种布局、普通/管理员入口和文件夹参数，不修改实际注册表。它不能代替 Explorer 或 Directory Opus 中的实际点击测试。
 
-As long as you have a default scoop directory, this script should work.  Default `scoop` directory is: `%USERPROFILE%\scoop`.
+## 文件
+
+- `install.ps1`：安装菜单。
+- `uninstall.ps1`：卸载当前布局及所属 CommandStore 命令。
+- `verify-registration.ps1`：隔离验证。
+- 三张 PNG：布局示例。
+- `LICENSE`：保留原项目许可和版权信息。
